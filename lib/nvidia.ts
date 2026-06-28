@@ -3,7 +3,7 @@
 
 import OpenAI from "openai";
 
-const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
+const NVIDIA_API_KEY = process.env.NEXT_PUBLIC_NVIDIA_API_KEY || process.env.NVIDIA_API_KEY || "";
 const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 // النموذج المختار: Llama-3.3 Nemotron — ممتاز للتعليم والاستدلال
