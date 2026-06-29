@@ -146,7 +146,7 @@ export default function AITutorPage() {
           <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--gradient-purple)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🤖</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 800, fontSize: 15 }}>المعلم الذكي</div>
-            <div style={{ fontSize: 11, color: "var(--cyan-light)" }}>Nvidia AI • متصل</div>
+            <div style={{ fontSize: 11, color: "var(--cyan-light)" }}>Gemini AI • متصل</div>
           </div>
           {isMobile && (
             <button
@@ -266,7 +266,7 @@ export default function AITutorPage() {
                 : "محادثة حرة — بدون سياق"}
             </span>
           </div>
-          <div className="badge badge-purple" style={{ fontSize: 11, whiteSpace: "nowrap" }}>🤖 Nvidia Llama-Nemotron</div>
+          <div className="badge badge-purple" style={{ fontSize: 11, whiteSpace: "nowrap" }}>🤖 Google Gemini 2.0 Flash</div>
         </div>
 
         {/* Messages */}
@@ -347,7 +347,7 @@ export default function AITutorPage() {
             </button>
           </div>
           <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6, textAlign: "center" }}>
-            مدعوم بـ Nvidia NIM • يعمل بنموذج Llama-3.3 Nemotron 49B 🤖
+            مدعوم بـ Google Gemini AI • يعمل بنموذج Gemini 2.0 Flash 🤖
           </p>
         </div>
       </div>

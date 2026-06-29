@@ -1,8 +1,7 @@
-// Client-side NVIDIA NIM API wrapper using fetch
-// Compatible with static export (no server-side API routes needed)
+// Client-side Google Gemini API wrapper using fetch
+// Works directly from browser (supports CORS) — compatible with static GitHub Pages export
 
-const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
-const DEFAULT_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 const PHYSICS_SYSTEM_PROMPT = `أنت معلم فيزياء متخصص وذكي للصف الثاني ثانوي في المنهج السعودي/العربي.
 
@@ -14,10 +13,13 @@ const PHYSICS_SYSTEM_PROMPT = `أنت معلم فيزياء متخصص وذكي 
 5. استخدام الرموز الفيزيائية الصحيحة (F, E, V, I, R...)
 
 الوحدات الدراسية التي تغطيها:
+- توازن الأجسام الصلبة (عزم القوة، مركز الثقل)
+- الدوران (الإزاحة الزاوية، السرعة الزاوية)
 - الكهرباء الساكنة (قانون كولوم، المجال الكهربائي، الجهد، المكثفات)
 - التيار الكهربائي المستمر (أوم، كيرشهوف، الدوائر الكهربائية)
 - المغناطيسية والحث الكهرومغناطيسي (فاراداي، لنز، المحولات)
 - الفيزياء الحديثة (الفوتون، التأثير الكهروضوئي، ثابت بلانك)
+- الضوء والإضاءة (الإضاءة، شدة الإضاءة)
 
 قواعد مهمة:
 - أجب دائماً بالعربية الفصيحة
@@ -31,7 +33,22 @@ export interface ChatMessage {
 }
 
 function getApiKey(): string {
-  return process.env.NEXT_PUBLIC_NVIDIA_API_KEY || "";
+  return process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+}
+
+function buildGeminiContents(messages: ChatMessage[], systemContext: string) {
+  // Gemini uses "contents" array with "user" and "model" roles
+  const contents = messages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  return {
+    system_instruction: {
+      parts: [{ text: systemContext }],
+    },
+    contents,
+  };
 }
 
 export async function chatWithAI(
@@ -40,28 +57,25 @@ export async function chatWithAI(
 ): Promise<string> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    return "⚠️ مفتاح API غير مُعد. أضف NEXT_PUBLIC_NVIDIA_API_KEY في ملف .env.local";
+    return "⚠️ مفتاح API غير مُعد. أضف NEXT_PUBLIC_GEMINI_API_KEY في ملف .env.local";
   }
 
   const systemContent = lessonContext
     ? `${PHYSICS_SYSTEM_PROMPT}\n\nالدرس الحالي:\n${lessonContext}`
     : PHYSICS_SYSTEM_PROMPT;
 
+  const body = buildGeminiContents(messages, systemContent);
+
   try {
-    const response = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${GEMINI_BASE_URL}?key=${apiKey}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        messages: [
-          { role: "system", content: systemContent },
-          ...messages,
-        ],
-        temperature: 0.6,
-        max_tokens: 4096,
+        ...body,
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 4096,
+        },
       }),
     });
 
@@ -71,9 +85,12 @@ export async function chatWithAI(
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content ?? "عذراً، لم أتمكن من الإجابة. حاول مرة أخرى.";
-  } catch (error: any) {
-    console.error("Nvidia API Error:", error);
+    return (
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "عذراً، لم أتمكن من الإجابة. حاول مرة أخرى."
+    );
+  } catch (error: unknown) {
+    console.error("Gemini API Error:", error);
     throw new Error("تعذر الاتصال بالذكاء الاصطناعي. تأكد من صلاحية مفتاح API.");
   }
 }
@@ -110,20 +127,15 @@ ${lessonContent}
 أنواع الأسئلة: mcq (اختيار متعدد), truefalse (صح وخطأ), calculation (حسابي)`;
 
   try {
-    const response = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${GEMINI_BASE_URL}?key=${apiKey}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        messages: [
-          { role: "system", content: "أنت مولّد أسئلة فيزياء متخصص. أنشئ أسئلة دقيقة ومتوازنة بصيغة JSON فقط." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 3000,
+        system_instruction: {
+          parts: [{ text: "أنت مولّد أسئلة فيزياء متخصص. أنشئ أسئلة دقيقة ومتوازنة بصيغة JSON فقط." }],
+        },
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 3000 },
       }),
     });
 
@@ -132,7 +144,7 @@ ${lessonContent}
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content ?? "[]";
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
   } catch (error) {
     console.error("Quiz generation error:", error);
     throw error;
@@ -144,6 +156,7 @@ export async function streamChatWithAI(
   lessonContext?: string,
   onChunk?: (chunk: string) => void
 ): Promise<string> {
+  // Gemini streaming via SSE
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("API key not configured");
@@ -153,21 +166,16 @@ export async function streamChatWithAI(
     ? `${PHYSICS_SYSTEM_PROMPT}\n\nالدرس الحالي:\n${lessonContext}`
     : PHYSICS_SYSTEM_PROMPT;
 
-  const response = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+  const body = buildGeminiContents(messages, systemContent);
+
+  const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+  const response = await fetch(streamUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      messages: [
-        { role: "system", content: systemContent },
-        ...messages,
-      ],
-      temperature: 0.6,
-      max_tokens: 4096,
-      stream: true,
+      ...body,
+      generationConfig: { temperature: 0.6, maxOutputTokens: 4096 },
     }),
   });
 
@@ -194,7 +202,8 @@ export async function streamChatWithAI(
         if (data === "[DONE]") break;
         try {
           const parsed = JSON.parse(data);
-          const content = parsed.choices[0]?.delta?.content ?? "";
+          const content =
+            parsed?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
           if (content) {
             fullText += content;
             onChunk?.(content);
